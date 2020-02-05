@@ -284,7 +284,7 @@
 !
         DO ng=1,Ngrids
           DO tile=first_tile(ng),last_tile(ng),+1
-# if defined OFFLINE_TPASSIVE || defined OFFLINE_BIOLOGY
+# if defined OFFLINE || defined OFFLINE_TPASSIVE || defined OFFLINE_BIOLOGY
 #  if defined ANA_VMIX
             CALL ana_vmix (ng, tile, iNLM)
 #  elif defined LMD_MIXING
@@ -352,11 +352,18 @@
         DO ng=1,Ngrids
           DO tile=first_tile(ng),last_tile(ng),+1
             CALL rhs3d (ng, tile)
-# ifdef MY25_MIXING
+#  if !defined OFFLINE && ( !defined MIXCLIMATOLOGY || !defined AKXCLIMATOLOGY )
+#   ifdef MY25_MIXING
             CALL my25_prestep (ng, tile)
-# elif defined GLS_MIXING
+#   elif defined GLS_MIXING
             CALL gls_prestep (ng, tile)
-# endif
+!# ifdef MY25_MIXING
+!            CALL my25_prestep (ng, tile)
+!#  elif defined GLS_MIXING
+!            CALL gls_prestep (ng, tile)
+!# endif
+#   endif
+#  endif
           END DO
 !$OMP BARRIER
         END DO
@@ -393,11 +400,19 @@
         DO ng=1,Ngrids
           DO tile=first_tile(ng),last_tile(ng),+1
             CALL omega (ng, tile, iNLM)
-# ifdef MY25_MIXING
+# if !defined OFFLINE && ( !defined MIXCLIMATOLOGY || !defined AKXCLIMATOLOGY || !defined ANA_VMIX )
+#  ifdef MY25_MIXING
             CALL my25_corstep (ng, tile)
-# elif defined GLS_MIXING
+#  elif defined GLS_MIXING
             CALL gls_corstep (ng, tile)
+#  endif
+!# ifdef MY25_MIXING
+!            CALL my25_corstep (ng, tile)
+!# elif defined GLS_MIXING
+!            CALL gls_corstep (ng, tile)
+!# endif
 # endif
+
 # ifdef BIOLOGY
             CALL biology (ng, tile)
 # endif

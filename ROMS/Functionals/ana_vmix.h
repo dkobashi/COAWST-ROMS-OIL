@@ -198,7 +198,13 @@
         END DO
       END DO
 #else
-      ana_vmix.h: no values provided for Akv.
+      DO k=1,N(ng)-1
+        DO j=JstrT,JendT
+          DO i=IstrT,IendT
+            Akv(i,j,k)=0.0_r8
+          END DO
+        END DO
+      END DO
 #endif
 !
 !  Exchange boundary data.
@@ -312,7 +318,14 @@
         END DO
       END DO
 #else
-      ana_vmix.h: no values provided for Akt.
+      DO k=1,N(ng)-1
+        DO j=JstrT,JendT
+          DO i=IstrT,IendT
+            Akt(i,j,k,itemp)=Akt_bak(itemp,ng)
+            Akt(i,j,k,isalt)=Akt_bak(isalt,ng)
+          END DO
+        END DO
+      END DO
 #endif
 !
 !  Exchange boundary data.

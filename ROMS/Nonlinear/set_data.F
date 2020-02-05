@@ -104,7 +104,7 @@
 # endif
 
       integer :: ILB, IUB, JLB, JUB
-      integer :: i, ic, itrc, j, k, my_tile
+      integer :: i, ic, itrc, j, k, my_tile, l
 
       real(r8) :: cff, cff1, cff2
 
@@ -2280,43 +2280,231 @@
 #  endif
 # endif
 
-# if defined SOLVE3D && defined AKTCLIMATOLOGY
+# if defined SOLVE3D && defined OFFLINE
 !
 !-----------------------------------------------------------------------
 !  Set vertical diffusion climatology.
 !-----------------------------------------------------------------------
 !
+
+! Added by DJ
+
+!#  ifdef ANA_AKTCLIMA
+!      CALL ana_aktclima (ng, tile, iNLM)
+!#  else
+!      CALL set_3dfld_tile (ng, tile, iNLM, idAclm,                      &
+!     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+!     &                       CLIMA(ng)%AclmG,                           &
+!     &                       CLIMA(ng)%Aclm,                            &
+!     &                       update)
+!#  endif
+!#  if defined OFFLINE
+!      DO k=0,N(ng)
+!        DO j=Jstr,Jend
+!          DO i=Istr,Iend
+!            MIXING(ng)%Akt(i,j,k,2) = CLIMA(ng)%Aclm(i,j,k)
+!          ENDDO
+!        ENDDO
+!      ENDDO
+!      IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
+!        CALL exchange_w3d_tile (ng, tile,                               &
+!     &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
+!     &                          MIXING(ng)%Akt(:,:,:,2))
+!      END IF
+!#   ifdef DISTRIBUTE
+!      CALL mp_exchange3d (ng, tile, iNLM, 1,                            &
+!     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+!     &                    NghostPoints,                                 &
+!     &                    EWperiodic(ng), NSperiodic(ng),               &
+!     &                    MIXING(ng)%Akt(:,:,:,2))
+!#   endif
+!#  endif
+!# endif
+
 #  ifdef ANA_AKTCLIMA
-      CALL ana_aktclima (ng, tile, iNLM)
-#  else
-      CALL set_3dfld_tile (ng, tile, iNLM, idAclm,                      &
-     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
-     &                       CLIMA(ng)%AclmG,                           &
-     &                       CLIMA(ng)%Aclm,                            &
-     &                       update)
+!      CALL ana_aktclima (ng, tile, iNLM)
+      CALL ana_vmix (ng, tile, iNLM)
+#  elif defined AKTCLIMATOLOGY || defined AKXCLIMATOLOGY
+      CALL set_3dfld_tile (ng, tile, iNLM, idAKtclm,                    &
+     &                     LBi, UBi, LBj, UBj, 0, N(ng),                &
+     &                     CLIMA(ng)%AKtclmG,                           &
+     &                     CLIMA(ng)%AKtclm,                            &
+     &                     update)
 #  endif
-#  if defined OFFLINE
+
+#  if defined OFFLINE && !defined ANA_VMIX
       DO k=0,N(ng)
         DO j=Jstr,Jend
           DO i=Istr,Iend
-            MIXING(ng)%Akt(i,j,k,2) = CLIMA(ng)%Aclm(i,j,k)
+#  if defined AKTCLIMATOLOGY || defined AKXCLIMATOLOGY
+            MIXING(ng)%Akt(i,j,k,1) = CLIMA(ng)%AKtclm(i,j,k)
+#  endif
+#  if defined AKSCLIMATOLOGY || defined AKXCLIMATOLOGY
+            MIXING(ng)%Akt(i,j,k,2) = CLIMA(ng)%AKsclm(i,j,k)
+#  endif
+#  if defined AKVCLIMATOLOGY || defined AKXCLIMATOLOGY
+            MIXING(ng)%Akv(i,j,k) = CLIMA(ng)%AKvclm(i,j,k)
+#  endif
+#  if defined TKECLIMATOLOGY || defined MIXCLIMATOLOGY
+            MIXING(ng)%tke(i,j,k,nnew(ng)) = CLIMA(ng)%tkeclm(i,j,k)
+#  endif
+#  if defined GLSCLIMATOLOGY || defined MIXCLIMATOLOGY
+            MIXING(ng)%gls(i,j,k,nnew(ng)) = CLIMA(ng)%glsclm(i,j,k)
+#  endif
           ENDDO
         ENDDO
       ENDDO
+
       IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
         CALL exchange_w3d_tile (ng, tile,                               &
      &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
-     &                          MIXING(ng)%Akt(:,:,:,2))
+     &                          MIXING(ng)%Akt(:,:,:,1))
       END IF
-#   ifdef DISTRIBUTE
+#  ifdef DISTRIBUTE
+      CALL mp_exchange3d (ng, tile, iNLM, 1,                            &
+     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+     &                    NghostPoints,                                 &
+     &                    EWperiodic(ng), NSperiodic(ng),               &
+     &                    MIXING(ng)%Akt(:,:,:,1))
+#  endif
+#  if defined AKSCLIMATOLOGY || defined AKXCLIMATOLOGY
+      CALL set_3dfld_tile (ng, tile, iNLM, idAKsclm,                    &
+     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+     &                       CLIMA(ng)%AKsclmG,                         &
+     &                       CLIMA(ng)%AKsclm,                          &
+     &                       update)
+#  endif
+#  if defined AKVCLIMATOLOGY || defined AKXCLIMATOLOGY
+      CALL set_3dfld_tile (ng, tile, iNLM, idAKvclm,                    &
+     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+     &                       CLIMA(ng)%AKvclmG,                         &
+     &                       CLIMA(ng)%AKvclm,                          &
+     &                       update)
+#  endif
+!      DO k=1,3
+#  if defined TKECLIMATOLOGY || defined MIXCLIMATOLOGY
+         CALL set_3dfld_tile (ng, tile, iNLM, idtkeclm,                 &
+     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+     &                       CLIMA(ng)%tkeclmG,                         &
+     &                       CLIMA(ng)%tkeclm ,                 &
+     &                       update)
+#  endif
+#  if defined GLSCLIMATOLOGY || defined MIXCLIMATOLOGY
+         CALL set_3dfld_tile (ng, tile, iNLM, idglsclm,                 &
+     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+     &                       CLIMA(ng)%glsclmG,                         &
+     &                       CLIMA(ng)%glsclm,                 &
+     &                       update)
+#  endif
+!      ENDDO
+
+!      CALL set_3dfld_tile (ng, tile, iNLM, idtkeclm,                    &
+!     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+!     &                       CLIMA(ng)%tkeclmG,                         &
+!     &                       CLIMA(ng)%tkeclm(:,:,:,nnew(ng)),          &
+!     &                       update)
+!      CALL set_3dfld_tile (ng, tile, iNLM, idglsclm,                    &
+!     &                       LBi, UBi, LBj, UBj, 0, N(ng),              &
+!     &                       CLIMA(ng)%glsclmG,                         &
+!     &                       CLIMA(ng)%glsclm(:,:,:,nnew(ng)),          &
+!     &                       update)
+!      ENDDO
+
+
+!#  if defined OFFLINE
+!      DO k=0,N(ng)
+!        DO j=Jstr,Jend
+!          DO i=Istr,Iend
+!#   if defined AKSCLIMATOLOGY || defined AKXCLIMATOLOGY
+!            MIXING(ng)%Akt(i,j,k,2) = CLIMA(ng)%AKsclm(i,j,k)
+!#   endif
+!#   if defined AKVCLIMATOLOGY || defined AKXCLIMATOLOGY
+!            MIXING(ng)%Akv(i,j,k) = CLIMA(ng)%AKvclm(i,j,k)
+!#   endif
+!#   if defined TKECLIMATOLOGY || defined MIXCLIMATOLOGY
+!            MIXING(ng)%tke(i,j,k,nnew(ng)) = CLIMA(ng)%tkeclm(i,j,k)
+!#   endif
+!#   if defined GLSCLIMATOLOGY || defined MIXCLIMATOLOGY
+!            MIXING(ng)%gls(i,j,k,nnew(ng)) = CLIMA(ng)%glsclm(i,j,k)
+!#   endif
+!          ENDDO
+!        ENDDO
+!      ENDDO
+
+      IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
+#  if defined AKTCLIMATOLOGY || defined AKXCLIMATOLOGY
+        CALL exchange_w3d_tile (ng, tile,                               &
+     &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
+     &                          MIXING(ng)%Akt(:,:,:,2))
+#  endif
+#  if defined AKVCLIMATOLOGY || defined AKXCLIMATOLOGY
+        CALL exchange_w3d_tile (ng, tile,                               &
+     &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
+     &                          MIXING(ng)%Akv)
+#  endif
+        DO i=1,3
+#  if defined TKECLIMATOLOGY || defined MIXCLIMATOLOGY
+           CALL exchange_w3d_tile (ng, tile,                            &
+     &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
+     &                          MIXING(ng)%tke(:,:,:,i))
+#  endif
+#  if defined GLSCLIMATOLOGY || defined MIXCLIMATOLOGY
+           CALL exchange_w3d_tile (ng, tile,                            &
+     &                          LBi, UBi, LBj, UBj, 0, N(ng),           &
+     &                          MIXING(ng)%gls(:,:,:,i))
+#  endif
+        ENDDO
+      END IF
+#  ifdef DISTRIBUTE
+#   if defined AKTCLIMATOLOGY || defined AKXCLIMATOLOGY
       CALL mp_exchange3d (ng, tile, iNLM, 1,                            &
      &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
      &                    NghostPoints,                                 &
      &                    EWperiodic(ng), NSperiodic(ng),               &
      &                    MIXING(ng)%Akt(:,:,:,2))
 #   endif
+#   if defined AKVCLIMATOLOGY || defined AKXCLIMATOLOGY
+      CALL mp_exchange3d (ng, tile, iNLM, 1,                            &
+     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+     &                    NghostPoints,                                 &
+     &                    EWperiodic(ng), NSperiodic(ng),               &
+     &                    MIXING(ng)%Akv)
+#   endif
+
+      DO i=1,3
+#    if defined TKECLIMATOLOGY || defined MIXCLIMATOLOGY      
+         CALL mp_exchange3d (ng, tile, iNLM, 1,                         &
+     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+     &                    NghostPoints,                                 &
+     &                    EWperiodic(ng), NSperiodic(ng),               &
+     &                    MIXING(ng)%tke(:,:,:,i))
+#    endif
+#    if defined GLSCLIMATOLOGY || defined MIXCLIMATOLOGY
+         CALL mp_exchange3d (ng, tile, iNLM, 1,                         &
+     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+     &                    NghostPoints,                                 &
+     &                    EWperiodic(ng), NSperiodic(ng),               &
+     &                    MIXING(ng)%gls(:,:,:,i))
+#    endif
+      ENDDO
+
+!      CALL mp_exchange3d (ng, tile, iNLM, 1,                         &
+!     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+!     &                    NghostPoints,                                 &
+!     &                    EWperiodic(ng), NSperiodic(ng),               &
+!     &                    MIXING(ng)%tke(:,:,:,nnew(ng)))
+!      CALL mp_exchange3d (ng, tile, iNLM, 1,                         &
+!     &                    LBi, UBi, LBj, UBj, 0, N(ng),                 &
+!     &                    NghostPoints,                                 &
+!     &                    EWperiodic(ng), NSperiodic(ng),               &
+!     &                    MIXING(ng)%gls(:,:,:,nnew(ng)))
+!
 #  endif
+#  endif
+!#  endif
 # endif
+!-----------------------------------------------------------------------
+
 
 # if defined W4DPSAS || defined NLM_OUTER || \
      defined W4DPSAS_SENSITIVITY

@@ -575,6 +575,34 @@
             END DO
           END DO
         END IF
+! added by DJ
+        IF (Aout(idMtke,ng)) THEN
+          DO k=0,N(ng)
+            DO j=JstrR,JendR
+              DO i=IstrR,IendR
+                AVERAGE(ng)%avgtke(i,j,k)=MIXING(ng)%tke(i,j,k,1)
+#   ifdef WET_DRY
+                AVERAGE(ng)%avgtke(i,j,k)=AVERAGE(ng)%avgtke(i,j,k)*    &
+     &                                    GRID(ng)%rmask_full(i,j)
+#   endif
+              END DO
+            END DO
+          END DO
+        END IF
+        IF (Aout(idMtls,ng)) THEN
+          DO k=0,N(ng)
+            DO j=JstrR,JendR
+              DO i=IstrR,IendR
+                AVERAGE(ng)%avggls(i,j,k)=MIXING(ng)%gls(i,j,k,1)
+#   ifdef WET_DRY
+                AVERAGE(ng)%avggls(i,j,k)=AVERAGE(ng)%avggls(i,j,k)*    &
+     &                                    GRID(ng)%rmask_full(i,j)
+#   endif
+              END DO
+            END DO
+          END DO
+        END IF
+!-------------------------------------
 #  endif
 #  ifdef LMD_SKPP
         IF (Aout(idHsbl,ng)) THEN
